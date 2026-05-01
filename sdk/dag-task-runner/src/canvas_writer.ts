@@ -62,6 +62,9 @@ export class CanvasWriter {
   private pending: RunState | null = null;
   private timer: NodeJS.Timeout | null = null;
   private inFlight: Promise<void> = Promise.resolve();
+  private writeSeq = 0;
+  private lastFailedWriteSeq = 0;
+  private lastWriteError: unknown = null;
 
   constructor(
     private readonly canvasPath: string,
@@ -76,7 +79,7 @@ export class CanvasWriter {
       const snapshot = this.pending;
       this.pending = null;
       if (snapshot) {
-        this.inFlight = this.inFlight.then(() => this.writeNow(snapshot));
+        this.enqueueWrite(snapshot);
       }
     }, this.debounceMs);
   }
@@ -89,10 +92,27 @@ export class CanvasWriter {
     }
     const snapshot = this.pending;
     this.pending = null;
-    if (snapshot) {
-      this.inFlight = this.inFlight.then(() => this.writeNow(snapshot));
-    }
+    const targetWriteSeq = snapshot ? this.enqueueWrite(snapshot) : this.writeSeq;
     await this.inFlight;
+    if (targetWriteSeq > 0 && this.lastFailedWriteSeq === targetWriteSeq) {
+      throw this.lastWriteError;
+    }
+  }
+
+  private enqueueWrite(state: RunState): number {
+    const seq = ++this.writeSeq;
+    this.inFlight = this.inFlight.then(async () => {
+      try {
+        await this.writeNow(state);
+        if (this.lastFailedWriteSeq < seq) {
+          this.lastWriteError = null;
+        }
+      } catch (err) {
+        this.lastFailedWriteSeq = seq;
+        this.lastWriteError = err;
+      }
+    });
+    return seq;
   }
 
   private async writeNow(state: RunState): Promise<void> {

@@ -265,9 +265,11 @@ async function main(): Promise<void> {
             state,
             writer,
             args.cwd,
-            args.taskTimeoutMs,
-            args.streamPublishMs,
-            args.streamIdleTimeoutMs,
+            {
+              taskTimeoutMs: args.taskTimeoutMs,
+              streamPublishMs: args.streamPublishMs,
+              streamIdleTimeoutMs: args.streamIdleTimeoutMs,
+            },
           );
         }),
       );
@@ -318,10 +320,9 @@ async function runTask(
   state: RunState,
   writer: CanvasWriter,
   cwd: string,
-  taskTimeoutMs: number,
-  streamPublishMs: number,
-  streamIdleTimeoutMs: number,
+  options: RunTaskOptions,
 ): Promise<void> {
+  const { taskTimeoutMs, streamPublishMs, streamIdleTimeoutMs } = options;
   const ts = stateById.get(task.id)!;
   ts.status = "RUNNING";
   ts.startedAt = Date.now();
@@ -362,7 +363,7 @@ async function runTask(
       const next = await withTimeout(
         iterator.next(),
         timeoutForNext,
-        `Task ${task.id} produced no stream events for ${formatMs(streamIdleTimeoutMs)}`,
+        streamWaitTimeoutMessage(task.id, timeoutForNext, streamIdleTimeoutMs),
       );
       if (next.done) break;
       const event = next.value as {
@@ -456,6 +457,12 @@ async function runTask(
   }
 }
 
+interface RunTaskOptions {
+  taskTimeoutMs: number;
+  streamPublishMs: number;
+  streamIdleTimeoutMs: number;
+}
+
 /** Cap on per-task `resultText` size — applies to live streaming and final state. */
 const STREAM_CAP = 4000;
 /** Hard timeout per task to prevent stale RUNNING tasks. */
@@ -480,6 +487,18 @@ class TimeoutError extends Error {
 
 function isTimeoutError(err: unknown): boolean {
   return err instanceof TimeoutError;
+}
+
+function streamWaitTimeoutMessage(
+  taskId: string,
+  timeoutMs: number,
+  streamIdleTimeoutMs: number,
+): string {
+  const effectiveTimeout = formatMs(timeoutMs);
+  if (timeoutMs < streamIdleTimeoutMs) {
+    return `Task ${taskId} produced no stream events within ${effectiveTimeout} before the task deadline (configured stream idle timeout: ${formatMs(streamIdleTimeoutMs)})`;
+  }
+  return `Task ${taskId} produced no stream events within ${effectiveTimeout}`;
 }
 
 async function withTimeout<T>(
