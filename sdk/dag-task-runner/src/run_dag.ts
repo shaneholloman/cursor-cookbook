@@ -126,10 +126,10 @@ function parseArgs(argv: string[]): CliArgs {
 function parsePositiveInt(raw: string | undefined, fallback: number, flag: string): number {
   if (raw === undefined) return fallback;
   const n = Number(raw);
-  if (!Number.isFinite(n) || n <= 0) {
-    throw new Error(`${flag} must be a positive number`);
+  if (!Number.isSafeInteger(n) || n <= 0) {
+    throw new Error(`${flag} must be a positive integer`);
   }
-  return Math.floor(n);
+  return n;
 }
 
 interface ModelOverrideSources {
@@ -367,7 +367,11 @@ async function runTask(
       const next = await withTimeout(
         iterator.next(),
         timeoutForNext,
-        streamWaitTimeoutMessage(task.id, timeoutForNext, streamIdleTimeoutMs),
+        streamWaitTimeoutMessage({
+          taskId: task.id,
+          timeoutMs: timeoutForNext,
+          streamIdleTimeoutMs,
+        }),
       );
       if (next.done) break;
       const event = next.value as {
@@ -493,11 +497,17 @@ function isTimeoutError(err: unknown): boolean {
   return err instanceof TimeoutError;
 }
 
-function streamWaitTimeoutMessage(
-  taskId: string,
-  timeoutMs: number,
-  streamIdleTimeoutMs: number,
-): string {
+interface StreamWaitTimeoutMessageOptions {
+  taskId: string;
+  timeoutMs: number;
+  streamIdleTimeoutMs: number;
+}
+
+function streamWaitTimeoutMessage({
+  taskId,
+  timeoutMs,
+  streamIdleTimeoutMs,
+}: StreamWaitTimeoutMessageOptions): string {
   const effectiveTimeout = formatMs(timeoutMs);
   if (timeoutMs < streamIdleTimeoutMs) {
     return `Task ${taskId} produced no stream events within ${effectiveTimeout} before the task deadline (configured stream idle timeout: ${formatMs(streamIdleTimeoutMs)})`;
