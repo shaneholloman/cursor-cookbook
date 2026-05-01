@@ -138,24 +138,38 @@ Precedence is defaults < DAG `models` < `--models-file`. The Cursor SDK model ca
 | `--stream-publish-ms`       | `500` ms             | Throttles live canvas streaming writes.                                             |
 | `--stream-idle-timeout-ms`  | `300000` (5 min)     | Marks a task `ERROR` if no stream events arrive within this window.                |
 
-## Install as a Cursor skill
+## Copy as a Cursor skill
 
-The runner ships with a [SKILL.md](./skill/SKILL.md) so the Cursor agent can invoke it automatically when a user asks to "decompose this task as a DAG", "fan out subagents", etc.
-
-Install it as a personal skill (available across every workspace):
+This repo ships a ready-to-copy skill at [`../../.cursor/skills/dag-task-runner`](../../.cursor/skills/dag-task-runner). Copy that directory into another project or into your personal skills folder:
 
 ```bash
-./scripts/install-skill.sh
+# Project-scoped skill for another repo
+mkdir -p /path/to/project/.cursor/skills
+cp -R .cursor/skills/dag-task-runner /path/to/project/.cursor/skills/
+
+# Personal skill available across workspaces
+mkdir -p ~/.cursor/skills
+cp -R .cursor/skills/dag-task-runner ~/.cursor/skills/
 ```
 
-This copies `skill/SKILL.md`, `examples/`, and the runner sources into `~/.cursor/skills/dag-task-runner/`, then `pnpm install`s the runner's dependencies. The installed entry point is `$DAG_RUNNER_DIR/run_dag.ts`. To install at a custom location:
+The copied skill contains `SKILL.md`, `examples/`, and a `scripts/` runtime directory. It does not include `node_modules`; the skill instructions install dependencies into `scripts/` on first use.
+
+The skill auto-detects the runner in this order:
+
+1. `DAG_RUNNER_DIR`, if set.
+2. `<current-working-directory>/.cursor/skills/dag-task-runner/scripts`.
+3. `<git-root>/.cursor/skills/dag-task-runner/scripts`.
+4. `~/.cursor/skills/dag-task-runner/scripts`.
+
+## Sync the copyable artifact
+
+Keep [`../../.cursor/skills/dag-task-runner`](../../.cursor/skills/dag-task-runner) generated from the SDK source:
 
 ```bash
-DEST=~/work/skills/dag-task-runner ./scripts/install-skill.sh
-export DAG_RUNNER_DIR="$HOME/work/skills/dag-task-runner/scripts"
+./scripts/sync-copyable-skill.sh
 ```
 
-To install as a project-scoped skill instead, copy the same files into `<your-project>/.cursor/skills/dag-task-runner/`.
+Run this after editing `src/`, `skill/SKILL.md`, `examples/`, `package.json`, or `tsconfig.json`.
 
 ## Project layout
 
@@ -175,9 +189,9 @@ sdk/dag-task-runner/
 │   ├── dag-canvas-preview.png    # canvas screenshot
 │   └── demo_vid_dag.gif          # animated canvas demo used in this README
 ├── skill/
-│   └── SKILL.md                  # personal-skill entry, copied by install-skill.sh
+│   └── SKILL.md                  # source for the copyable skill instructions
 └── scripts/
-    └── install-skill.sh          # one-shot installer for ~/.cursor/skills/
+    └── sync-copyable-skill.sh    # regenerates ../../.cursor/skills/dag-task-runner/
 ```
 
 ## Notes

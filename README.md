@@ -26,6 +26,6 @@ A minimal command-line interface that lets you spawn Cursor agents from your ter
 
 ### [DAG task runner](sdk/dag-task-runner)
 
-Decompose a task into a JSON DAG, fan it out across local subagents, and stream live status into a Cursor Canvas that hot-reloads on every state change. Ships as both a runnable example and an installable Cursor skill.
+Decompose a task into a JSON DAG, fan it out across local subagents, and stream live status into a Cursor Canvas that hot-reloads on every state change. Ships as both a runnable example and a copyable Cursor skill at [`.cursor/skills/dag-task-runner`](.cursor/skills/dag-task-runner).
 
 Learn more in the [Cursor SDK TypeScript docs](https://cursor.com/docs/api/sdk/typescript).
